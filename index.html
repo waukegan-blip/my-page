@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -157,6 +158,13 @@
   .modal-actions button{flex:1;}
   .modal-actions .primary{padding:12px; margin:0;}
   .modal-actions .ghost{margin:0;}
+  .num-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(46px,1fr)); gap:8px;}
+  .num-btn{
+    aspect-ratio:1; border-radius:50%; border:1px solid var(--line);
+    background:var(--bg2); color:var(--ink); font-size:.95rem; font-family:inherit; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  .num-btn.active{background:var(--gold); color:#231a0e; border-color:var(--gold); font-weight:600;}
 </style>
 </head>
 <body>
@@ -578,38 +586,68 @@ function fallbackCopy(text, done){
 }
 
 function renderPlayerJoin(){
-  let num = 1;
+  let num = null;
+  let payload = null;
   stage.innerHTML = `
     <h1>輸入房間代碼</h1>
-    <p class="sub">貼上主持人給你的房間代碼，並選擇你是第幾號玩家。</p>
+    <p class="sub">貼上主持人給你的房間代碼，再點選你的號碼。</p>
     <div class="field">
       <label>房間代碼</label>
       <textarea id="codeInput" rows="3"></textarea>
     </div>
-    <div class="field">
-      <label>我是第幾號玩家</label>
-      <div class="stepper wide">
-        <button type="button" id="numMinus">−</button>
-        <span id="numVal">1</span>
-        <button type="button" id="numPlus">+</button>
-      </div>
+    <div class="field" id="numField" style="display:none;">
+      <label>點選你的號碼</label>
+      <div class="num-grid" id="numGrid"></div>
     </div>
     <p class="hint2" id="joinError" style="color:var(--wolf);"></p>
-    <button type="button" class="primary" id="viewBtn">查看我的身分</button>
+    <button type="button" class="primary" id="viewBtn" disabled>查看我的身分</button>
     <button type="button" class="ghost" id="backBtn3">‹ 返回</button>
   `;
-  document.getElementById('numMinus').addEventListener('click', ()=>{ num=Math.max(1,num-1); document.getElementById('numVal').textContent=num; });
-  document.getElementById('numPlus').addEventListener('click', ()=>{ num=num+1; document.getElementById('numVal').textContent=num; });
-  document.getElementById('backBtn3').addEventListener('click', renderOnlineChoice);
-  document.getElementById('viewBtn').addEventListener('click', ()=>{
-    const raw = document.getElementById('codeInput').value;
-    let payload;
-    try{ payload = decodeRoom(raw); }
-    catch(e){ document.getElementById('joinError').textContent = '代碼看起來不正確，請確認有完整複製貼上。'; return; }
-    if(num < 1 || num > payload.p){
-      document.getElementById('joinError').textContent = `這個房間有 ${payload.p} 位玩家，請確認你的號碼。`;
-      return;
+  const input = document.getElementById('codeInput');
+  const grid = document.getElementById('numGrid');
+  const numField = document.getElementById('numField');
+  const errEl = document.getElementById('joinError');
+  const viewBtn = document.getElementById('viewBtn');
+
+  function buildGrid(){
+    grid.innerHTML = '';
+    for(let i=1;i<=payload.p;i++){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'num-btn' + (i===num ? ' active' : '');
+      b.textContent = i;
+      b.addEventListener('click', ()=>{
+        num = i;
+        grid.querySelectorAll('.num-btn').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        viewBtn.disabled = false;
+      });
+      grid.appendChild(b);
     }
+  }
+
+  input.addEventListener('input', ()=>{
+    const raw = input.value.trim();
+    errEl.textContent = '';
+    if(!raw){
+      payload = null; num = null; numField.style.display = 'none'; viewBtn.disabled = true; return;
+    }
+    try{
+      const decoded = decodeRoom(raw);
+      if(!payload || payload.p !== decoded.p) num = null;
+      payload = decoded;
+      numField.style.display = '';
+      buildGrid();
+      viewBtn.disabled = (num === null);
+    }catch(e){
+      payload = null; num = null; numField.style.display = 'none'; viewBtn.disabled = true;
+      errEl.textContent = '代碼看起來不正確，請確認有完整複製貼上。';
+    }
+  });
+
+  document.getElementById('backBtn3').addEventListener('click', renderOnlineChoice);
+  viewBtn.addEventListener('click', ()=>{
+    if(!payload || num === null) return;
     const result = computeGroups(payload.s, payload.p, payload.c, payload.n);
     renderPlayerReveal(result.groups[num-1], num, payload.p);
   });
@@ -693,3 +731,5 @@ renderModeSelect();
 </script>
 </body>
 </html>
+
+</body></html>
