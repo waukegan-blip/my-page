@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>狼人殺 · 發牌</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1a1f38; --bg2:#242a4a; --card:#2d3457;
+    --gold:#e3a857; --ink:#f2efe6; --ink-dim:#b9bcd6;
+    --wolf:#c25a4d; --good:#7fa08e; --line:rgba(242,239,230,.14);
+    box-sizing:border-box;
+    padding-top: env(safe-area-inset-top,0px);
+    padding-bottom: env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:inherit}
+  html{height:100%; scroll-padding-top: env(safe-area-inset-top,0px);}
+  body{
+    height:100%; margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Inter',sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    background-image: radial-gradient(circle at 50% -10%, #333a63 0%, var(--bg) 55%);
+  }
+  .stage{width:100%; max-width:420px; padding:20px 16px; min-height:100%; display:flex; flex-direction:column;}
+  h1{font-family:'Crimson Pro',serif; font-weight:700; font-size:1.4rem; margin:0 0 4px;}
+  .sub{color:var(--ink-dim); font-size:.85rem; margin:0 0 16px; line-height:1.5;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:.82rem; color:var(--ink-dim); margin-bottom:5px;}
+  input[type=number]{
+    width:100%; background:var(--bg2); border:1px solid var(--line); color:var(--ink);
+    padding:11px 12px; border-radius:9px; font-size:1rem; font-family:inherit;
+  }
+  .seg{display:flex; gap:8px;}
+  .seg-btn{
+    flex:1; padding:9px 6px; border-radius:9px; border:1px solid var(--line);
+    background:var(--bg2); color:var(--ink-dim); font-family:inherit; font-size:.82rem; cursor:pointer;
+  }
+  .seg-btn.active{background:var(--gold); color:#231a0e; border-color:var(--gold); font-weight:600;}
+  .hint2{color:var(--ink-dim); font-size:.75rem; margin:6px 0 0; line-height:1.5;}
+  .role-row{display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line);}
+  .role-row:last-child{border-bottom:none;}
+  .role-name{font-size:.9rem;}
+  .role-name small{display:block; color:var(--ink-dim); font-size:.72rem; margin-top:1px;}
+  .stepper{display:flex; align-items:center; gap:8px;}
+  .stepper button{
+    width:28px; height:28px; border-radius:50%; border:1px solid var(--line);
+    background:var(--bg2); color:var(--ink); font-size:1rem; line-height:1; cursor:pointer;
+  }
+  .stepper span{min-width:16px; text-align:center; font-variant-numeric:tabular-nums; font-size:.9rem;}
+  .tally{margin-top:12px; padding:10px 12px; border-radius:10px; background:var(--bg2); font-size:.82rem; display:flex; justify-content:space-between;}
+  .tally.bad{color:var(--wolf);}
+  .tally.ok{color:var(--good);}
+  .primary{
+    margin-top:auto; padding-top:14px;
+    width:100%; padding:12px; border:none; border-radius:11px;
+    background:var(--gold); color:#231a0e; font-weight:600; font-size:.92rem;
+    font-family:inherit; cursor:pointer;
+  }
+  .primary:disabled{opacity:.35; cursor:not-allowed;}
+  .ghost{
+    width:100%; padding:10px; border-radius:11px; margin:4px 0 14px;
+    background:transparent; border:1px solid var(--line); color:var(--ink-dim);
+    font-family:inherit; font-size:.82rem; cursor:pointer;
+  }
+  .hidden{display:none !important;}
+
+  .turn-badge{
+    align-self:center; font-family:'Crimson Pro',serif; font-size:.95rem; color:var(--ink-dim);
+    margin-bottom:4px;
+  }
+  .turn-num{font-family:'Crimson Pro',serif; font-size:2.1rem; font-weight:700; text-align:center; margin:0 0 18px;}
+  .card{
+    position:relative; margin:0 auto 18px; width:100%; max-width:250px; height:320px;
+    border-radius:16px; cursor:pointer; perspective:1000px;
+  }
+  .card-inner{
+    position:relative; width:100%; height:100%; border-radius:18px;
+    transition:transform .6s cubic-bezier(.2,.8,.2,1); transform-style:preserve-3d;
+  }
+  .card.flipped .card-inner{transform:rotateY(180deg);}
+  .card-face{
+    position:absolute; inset:0; border-radius:18px; backface-visibility:hidden;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:22px; text-align:center; overflow-y:auto;
+  }
+  .card-back{
+    background:linear-gradient(160deg,var(--card),#1f2544);
+    border:1px solid var(--line);
+  }
+  .card-back svg{opacity:.85; margin-bottom:14px;}
+  .card-back .hint{color:var(--ink-dim); font-size:.85rem;}
+  .card-front{
+    background:var(--card); border:1px solid var(--line); transform:rotateY(180deg);
+  }
+  .role-block{width:100%;}
+  .role-block + .role-block{margin-top:14px; padding-top:14px; border-top:1px solid var(--line);}
+  .role-block .role-icon{font-size:1.5rem;}
+  .role-block .role-title{font-family:'Crimson Pro',serif; font-weight:700; font-size:1.3rem; margin:6px 0 5px;}
+  .role-block .role-desc{color:var(--ink-dim); font-size:.78rem; line-height:1.45;}
+  .role-block.side-wolf .role-title{color:var(--wolf);}
+  .role-block.side-good .role-title{color:var(--good);}
+  .swap-btn{
+    position:absolute; top:10px; right:10px;
+    background:rgba(242,239,230,.08); border:1px solid var(--line); color:var(--ink-dim);
+    font-size:.72rem; padding:5px 9px; border-radius:20px; cursor:pointer; font-family:inherit;
+  }
+
+  .choice-btn{
+    width:100%; padding:14px; border:none; border-radius:11px; margin-bottom:12px;
+    background:var(--gold); color:#231a0e; font-weight:600; font-size:.92rem; font-family:inherit; cursor:pointer;
+  }
+  .choice-btn.alt{background:var(--bg2); color:var(--ink); border:1px solid var(--line);}
+  .room-code{
+    font-family:'Crimson Pro',serif; font-size:1.05rem; letter-spacing:.3px; word-break:break-all;
+    background:var(--bg2); border:1px solid var(--line); border-radius:12px; padding:16px;
+    margin-bottom:14px; text-align:center; line-height:1.5; max-height:26vh; overflow-y:auto;
+  }
+  textarea{
+    width:100%; background:var(--bg2); border:1px solid var(--line); color:var(--ink);
+    border-radius:9px; padding:10px; font-family:inherit; font-size:.85rem;
+  }
+
+  .confirm-row{display:flex; gap:10px; margin-top:auto; padding-top:18px;}
+  .confirm-row button{flex:1;}
+  .done-icon{font-size:2.4rem; text-align:center; margin-bottom:10px;}
+
+  .judge-fab{
+    position:fixed; top:calc(14px + env(safe-area-inset-top,0px)); right:14px;
+    width:38px; height:38px; border-radius:50%; border:1px solid var(--line);
+    background:var(--bg2); color:var(--ink-dim); font-size:1rem; cursor:pointer; z-index:5;
+  }
+  .judge-list{display:flex; flex-direction:column; gap:8px; margin-bottom:20px; max-height:62vh; overflow-y:auto;}
+  .judge-row{display:flex; align-items:center; gap:12px; background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:10px 12px;}
+  .judge-num{font-family:'Crimson Pro',serif; font-weight:700; font-size:1.1rem; min-width:22px;}
+  .judge-roles{display:flex; flex-wrap:wrap; gap:6px;}
+  .tag{font-size:.78rem; padding:4px 9px; border-radius:20px; background:rgba(242,239,230,.08); border:1px solid var(--line); white-space:nowrap;}
+  .tag.side-wolf{color:var(--wolf); border-color:rgba(194,90,77,.4);}
+  .tag.side-good{color:var(--good); border-color:rgba(127,160,142,.4);}
+
+  .stepper.wide{justify-content:center; gap:14px;}
+  .stepper.wide button{width:34px; height:34px; font-size:1.1rem;}
+  .stepper.wide span{font-family:'Crimson Pro',serif; font-weight:700; font-size:1.25rem; min-width:32px;}
+
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,12,26,.72);
+    display:flex; align-items:center; justify-content:center; z-index:30; padding:24px;
+  }
+  .modal-box{
+    background:var(--bg2); border:1px solid var(--line); border-radius:14px;
+    padding:20px; max-width:320px; width:100%;
+  }
+  .modal-box p{margin:0 0 18px; font-size:.94rem; line-height:1.6; color:var(--ink);}
+  .modal-actions{display:flex; gap:10px;}
+  .modal-actions button{flex:1;}
+  .modal-actions .primary{padding:12px; margin:0;}
+  .modal-actions .ghost{margin:0;}
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+
+<script>
+const ROLE_DEFS = [
+  {key:'wolfking',name:'狼王', side:'wolf', icon:'👑', desc:'狼人陣營，被投票出局或死亡時可開槍帶走一名玩家。'},
+  {key:'wolf',    name:'狼人', side:'wolf', icon:'🐺', desc:'每晚睜眼，與同伴一起選一名玩家淘汰。'},
+  {key:'bloodmoon',name:'血月使徒', side:'wolf', icon:'🌘', desc:'狼人陣營特殊身分，詳細技能請依你們的規則說明。'},
+  {key:'seer',    name:'預言家', side:'good', icon:'🔮', desc:'每晚可查驗一名玩家的正邪身分。'},
+  {key:'witch',   name:'女巫', side:'good', icon:'🧪', desc:'持有一瓶解藥與一瓶毒藥，各限用一次。'},
+  {key:'hunter',  name:'獵人', side:'good', icon:'🏹', desc:'被淘汰或出局時，可開槍帶走一名玩家。'},
+  {key:'guard',   name:'守衛', side:'good', icon:'🛡️', desc:'每晚可守護一名玩家，使其免於淘汰。'},
+  {key:'mirror',  name:'鏡像人', side:'good', icon:'🪞', desc:'夜晚可查看一名玩家的身分，作為推理參考。'},
+  {key:'idiot',   name:'白痴', side:'good', icon:'🎭', desc:'被投票出局時翻牌免死，但失去投票權。'},
+  {key:'demonhunter',name:'獵魔人', side:'good', icon:'🗡️', desc:'好人陣營特殊身分，詳細技能請依你們的規則說明。'},
+  {key:'prince',  name:'定序王子', side:'good', icon:'📜', desc:'好人陣營特殊身分，詳細技能請依你們的規則說明。'},
+  {key:'silentelder',name:'禁言長老', side:'good', icon:'🤐', desc:'好人陣營特殊身分，詳細技能請依你們的規則說明。'},
+  {key:'villager',name:'村民', side:'good', icon:'🌾', desc:'沒有特殊技能，靠推理與發言找出狼人。'},
+];
+
+let counts = {wolfking:0, wolf:4, bloodmoon:0, seer:1, witch:1, hunter:1, villager:5, guard:0, mirror:0, idiot:0, demonhunter:0, prince:0, silentelder:0};
+let players = 12;
+let cardsPerPlayer = 1;
+let deck = [];
+let groups = [];
+let leftover = [];
+let turn = 0;
+let appMode = 'local';
+let judgeReturnFn = null;
+
+const stage = document.getElementById('stage');
+
+function total(){ return Object.values(counts).reduce((a,b)=>a+b,0); }
+
+function renderModeSelect(){
+  stage.innerHTML = `
+    <h1>狼人殺發牌</h1>
+    <p class="sub">選擇這次怎麼玩。</p>
+    <button type="button" class="choice-btn" id="localModeBtn">同一台裝置輪流傳看</button>
+    <button type="button" class="choice-btn alt" id="onlineModeBtn">每人自己手機查看（房間代碼）</button>
+  `;
+  document.getElementById('localModeBtn').addEventListener('click', ()=>{ appMode='local'; renderSetup(); });
+  document.getElementById('onlineModeBtn').addEventListener('click', renderOnlineChoice);
+}
+
+function renderOnlineChoice(){
+  stage.innerHTML = `
+    <h1>線上發牌</h1>
+    <p class="sub">每個人用自己的手機打開同一個連結，只會看到自己的身分。</p>
+    <button type="button" class="choice-btn" id="hostBtn">我是主持人（產生房間代碼）</button>
+    <button type="button" class="choice-btn alt" id="joinBtn">我是玩家（輸入房間代碼）</button>
+    <button type="button" class="ghost" id="backBtn0">‹ 返回</button>
+  `;
+  document.getElementById('hostBtn').addEventListener('click', ()=>{ appMode='host'; renderSetup(); });
+  document.getElementById('joinBtn').addEventListener('click', renderPlayerJoin);
+  document.getElementById('backBtn0').addEventListener('click', renderModeSelect);
+}
+
+function renderSetup(){
+  const rows = ROLE_DEFS.map(r=>`
+    <div class="role-row">
+      <div class="role-name">${r.name}<small>${r.desc}</small></div>
+      <div class="stepper">
+        <button type="button" data-role="${r.key}" data-d="-1">−</button>
+        <span id="cnt-${r.key}">${counts[r.key]}</span>
+        <button type="button" data-role="${r.key}" data-d="1">+</button>
+      </div>
+    </div>`).join('');
+
+  stage.innerHTML = `
+    <h1>${appMode==='host' ? '設定身分（主持人）' : '狼人殺發牌'}</h1>
+    <p class="sub">設定人數、每人牌數與身分配置。</p>
+    <button type="button" class="ghost" id="setupBackBtn" style="margin-top:0;">‹ 返回</button>
+    <div class="field">
+      <label>玩家人數</label>
+      <div class="stepper wide">
+        <button type="button" id="playersMinus">−</button>
+        <span id="playersVal">${players}</span>
+        <button type="button" id="playersPlus">+</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>每人發牌數</label>
+      <div class="seg">
+        <button type="button" class="seg-btn ${cardsPerPlayer===1?'active':''}" data-cpp="1">1 張</button>
+        <button type="button" class="seg-btn ${cardsPerPlayer===2?'active':''}" data-cpp="2">2 張（雙身分）</button>
+      </div>
+      <p class="hint2" id="cppHint"></p>
+    </div>
+    <button type="button" class="ghost" id="presetBtn">套用範例：6 人雙身分（血月殺）</button>
+    <button type="button" class="ghost" id="presetBtn2">套用範例：7 人生還者局（單身分）</button>
+    ${rows}
+    <div class="tally" id="tally"></div>
+    <button class="primary" id="startBtn">${appMode==='host' ? '產生房間代碼' : '開始發牌'}</button>
+  `;
+
+  document.getElementById('setupBackBtn').addEventListener('click', ()=>{
+    if(appMode==='host') renderOnlineChoice(); else renderModeSelect();
+  });
+  document.getElementById('playersMinus').addEventListener('click', ()=>{
+    players = Math.max(1, players-1);
+    document.getElementById('playersVal').textContent = players;
+    updateTally();
+  });
+  document.getElementById('playersPlus').addEventListener('click', ()=>{
+    players = Math.min(30, players+1);
+    document.getElementById('playersVal').textContent = players;
+    updateTally();
+  });
+  stage.querySelectorAll('.seg-btn').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      cardsPerPlayer = parseInt(b.dataset.cpp,10);
+      renderSetup();
+    });
+  });
+  document.getElementById('presetBtn').addEventListener('click', ()=>{
+    players = 6; cardsPerPlayer = 2;
+    counts = {wolfking:1, wolf:1, bloodmoon:0, seer:1, witch:1, hunter:1, guard:1, mirror:1, villager:5, idiot:0, demonhunter:0, prince:0, silentelder:0};
+    renderSetup();
+  });
+  document.getElementById('presetBtn2').addEventListener('click', ()=>{
+    players = 7; cardsPerPlayer = 1;
+    counts = {wolfking:1, wolf:1, bloodmoon:0, seer:1, witch:1, hunter:1, guard:1, mirror:0, villager:1, idiot:0, demonhunter:0, prince:0, silentelder:0};
+    renderSetup();
+  });
+  stage.querySelectorAll('.stepper button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const role = b.dataset.role, d = parseInt(b.dataset.d,10);
+      counts[role] = Math.max(0, counts[role]+d);
+      document.getElementById('cnt-'+role).textContent = counts[role];
+      updateTally();
+    });
+  });
+  document.getElementById('startBtn').addEventListener('click', ()=>{
+    if(appMode==='host') generateRoomCode(); else startDeal();
+  });
+  updateTally();
+}
+
+function updateTally(){
+  const t = total();
+  const need = players * cardsPerPlayer;
+  const el = document.getElementById('tally');
+  const diff = need - t;
+  el.className = 'tally ' + (diff===0 ? 'ok' : 'bad');
+  el.innerHTML = diff===0
+    ? `<span>身分總數</span><span>${t} / ${need} ✓</span>`
+    : `<span>身分總數</span><span>${t} / ${need}（不一致，仍可開始）</span>`;
+  const hint = document.getElementById('cppHint');
+  if(hint){
+    hint.textContent = cardsPerPlayer===2
+      ? '雙身分模式已套用規則：狼人陣營（狼王、狼人）不會與預言家分配給同一位玩家；至少會有一位玩家拿到「民+民」或「民+鏡像人」。'
+      : '';
+  }
+}
+
+function showConfirm(message, onYes){
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <p>${message}</p>
+      <div class="modal-actions">
+        <button type="button" class="ghost" id="modalCancel">取消</button>
+        <button type="button" class="primary" id="modalOk">確定</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#modalCancel').addEventListener('click', ()=> overlay.remove());
+  overlay.querySelector('#modalOk').addEventListener('click', ()=>{ overlay.remove(); onYes(); });
+}
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function pairOk(g){
+  const hasWolfSide = g.some(r=>r.side==='wolf');
+  const hasSeer = g.some(r=>r.key==='seer');
+  if(hasWolfSide && hasSeer) return false;
+  return true;
+}
+function isWeakPair(g){
+  const keys = g.map(r=>r.key).slice().sort().join(',');
+  return keys==='villager,villager' || keys==='mirror,villager';
+}
+function dealGrouped(deckArr, playersCount, cpp){
+  const weakPossible = deckArr.filter(r=>r.key==='villager'||r.key==='mirror').length >= 2;
+  let bestWolfSeerOk = null;
+  for(let tries=0; tries<5000; tries++){
+    const shuffled = shuffle(deckArr.slice());
+    const gs = [];
+    for(let i=0;i<playersCount;i++) gs.push(shuffled.slice(i*cpp,(i+1)*cpp));
+    const wolfSeerOk = gs.every(pairOk);
+    if(!wolfSeerOk) continue;
+    if(!bestWolfSeerOk) bestWolfSeerOk = gs;
+    if(!weakPossible || gs.some(isWeakPair)) return gs;
+  }
+  return bestWolfSeerOk; // satisfies hard rule even if weak-pair rule couldn't be met
+}
+
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function shuffleSeeded(arr, rng){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(rng()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+function dealGroupedSeeded(deckArr, playersCount, cpp, rng){
+  const weakPossible = deckArr.filter(r=>r.key==='villager'||r.key==='mirror').length >= 2;
+  let bestWolfSeerOk = null;
+  for(let tries=0; tries<5000; tries++){
+    const shuffled = shuffleSeeded(deckArr.slice(), rng);
+    const gs = [];
+    for(let i=0;i<playersCount;i++) gs.push(shuffled.slice(i*cpp,(i+1)*cpp));
+    const wolfSeerOk = gs.every(pairOk);
+    if(!wolfSeerOk) continue;
+    if(!bestWolfSeerOk) bestWolfSeerOk = gs;
+    if(!weakPossible || gs.some(isWeakPair)) return gs;
+  }
+  return bestWolfSeerOk;
+}
+
+function computeGroups(seed, playersCount, cpp, cfgCounts){
+  const deckArr = [];
+  ROLE_DEFS.forEach(r=>{ for(let i=0;i<(cfgCounts[r.key]||0);i++) deckArr.push(r); });
+  const needed = playersCount * cpp;
+  const rng = mulberry32(seed);
+  let gs, shuffledFull;
+  if(deckArr.length===needed && cpp===2){
+    gs = dealGroupedSeeded(deckArr, playersCount, cpp, rng);
+    shuffledFull = gs.flat();
+  } else {
+    shuffledFull = shuffleSeeded(deckArr.slice(), rng);
+    gs = [];
+    for(let i=0;i<playersCount;i++) gs.push(shuffledFull.slice(i*cpp,(i+1)*cpp));
+  }
+  return { groups: gs, leftover: shuffledFull.slice(needed) };
+}
+
+function encodeRoom(seed, playersCount, cpp, cfgCounts){
+  const payload = {s:seed, p:playersCount, c:cpp, n:cfgCounts};
+  return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+}
+function decodeRoom(code){
+  const payload = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+  if(!payload || typeof payload.s!=='number' || typeof payload.p!=='number' || !payload.n) throw new Error('bad code');
+  return payload;
+}
+
+function startDeal(){
+  deck = [];
+  ROLE_DEFS.forEach(r=>{ for(let i=0;i<counts[r.key];i++) deck.push(r); });
+  const needed = players * cardsPerPlayer;
+  const exactMatch = deck.length === needed && needed > 0;
+
+  let shuffledDeck;
+  if(exactMatch && cardsPerPlayer===2){
+    groups = dealGrouped(deck, players, cardsPerPlayer);
+    shuffledDeck = groups.flat();
+  } else {
+    shuffledDeck = shuffle(deck.slice());
+    groups = [];
+    for(let i=0;i<players;i++){
+      groups.push(shuffledDeck.slice(i*cardsPerPlayer,(i+1)*cardsPerPlayer));
+    }
+  }
+  leftover = shuffledDeck.slice(needed);
+  turn = 0;
+  renderReveal();
+}
+
+function renderReveal(){
+  if(turn >= groups.length){ renderDone(); return; }
+  let hand = groups[turn].slice();
+
+  if(hand.length===0){
+    stage.innerHTML = `
+      <div class="turn-badge">傳給第</div>
+      <div class="turn-num">${turn+1} <span style="font-size:1.4rem;color:var(--ink-dim);">/ ${groups.length} 號玩家</span></div>
+      <p class="sub" style="text-align:center;">身分卡不夠分配，這位玩家沒有拿到身分卡。</p>
+      <button class="primary" id="nextBtn">下一位</button>
+      <button type="button" id="judgeBtn" class="judge-fab" title="法官檢視">👁️</button>
+    `;
+    document.getElementById('nextBtn').addEventListener('click', ()=>{ turn++; renderReveal(); });
+    document.getElementById('judgeBtn').addEventListener('click', ()=>{
+      showConfirm('這會顯示所有玩家的身分，確定目前沒有其他玩家在看畫面嗎？', renderJudgeView);
+    });
+    return;
+  }
+
+  const blocksHtml = arr => arr.map(role => `
+    <div class="role-block side-${role.side}">
+      <div class="role-icon">${role.icon}</div>
+      <div class="role-title">${role.name}</div>
+      <div class="role-desc">${role.desc}</div>
+    </div>`).join('');
+
+  stage.innerHTML = `
+    <div class="turn-badge">傳給第</div>
+    <div class="turn-num">${turn+1} <span style="font-size:1.4rem;color:var(--ink-dim);">/ ${groups.length} 號玩家</span></div>
+    <div class="card" id="card">
+      <div class="card-inner">
+        <div class="card-face card-back">
+          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#e3a857" stroke-width="1.4"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+          <div class="hint">輕觸卡片查看身分${hand.length>1 ? '（共 '+hand.length+' 張）' : ''}</div>
+        </div>
+        <div class="card-face card-front">
+          ${hand.length>1 ? '<button type="button" id="swapBtn" class="swap-btn" title="交換顯示順序">⇅ 交換順序</button>' : ''}
+          <div id="cardFrontInner">${blocksHtml(hand)}</div>
+        </div>
+      </div>
+    </div>
+    <div id="afterReveal" class="hidden">
+      <p class="sub" style="text-align:center;">看完了嗎？請收好手機再交給下一位。</p>
+      <button class="primary" id="nextBtn">收好了，下一位</button>
+    </div>
+    <button type="button" id="judgeBtn" class="judge-fab" title="法官檢視">👁️</button>
+  `;
+  const card = document.getElementById('card');
+  card.addEventListener('click', ()=>{
+    if(card.classList.contains('flipped')) return;
+    card.classList.add('flipped');
+    document.getElementById('afterReveal').classList.remove('hidden');
+  });
+  document.getElementById('nextBtn')?.addEventListener('click', ()=>{
+    turn++;
+    renderReveal();
+  });
+  document.getElementById('judgeBtn').addEventListener('click', ()=>{
+    showConfirm('這會顯示所有玩家的身分，確定目前沒有其他玩家在看畫面嗎？', renderJudgeView);
+  });
+  if(hand.length>1){
+    document.getElementById('swapBtn').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      hand.reverse();
+      groups[turn] = hand.slice();
+      document.getElementById('cardFrontInner').innerHTML = blocksHtml(hand);
+    });
+  }
+}
+
+function renderDone(){
+  stage.innerHTML = `
+    <div style="margin:auto 0;">
+      <div class="done-icon">🌙</div>
+      <h1 style="text-align:center;">發牌完成</h1>
+      <p class="sub" style="text-align:center;">所有玩家都已看過自己的身分，天黑請閉眼，遊戲開始。</p>
+    </div>
+    <button class="ghost" id="judgeViewBtn">法官檢視全部身分</button>
+    <button class="primary" id="restartBtn">重新設定並發牌</button>
+  `;
+  document.getElementById('restartBtn').addEventListener('click', ()=>{
+    renderSetup();
+  });
+  document.getElementById('judgeViewBtn').addEventListener('click', ()=>{
+    showConfirm('這會顯示所有玩家的身分，確定目前沒有其他玩家在看畫面嗎？', renderJudgeView);
+  });
+}
+
+function generateRoomCode(){
+  const seed = Math.floor(Math.random()*4294967295);
+  const result = computeGroups(seed, players, cardsPerPlayer, counts);
+  groups = result.groups;
+  leftover = result.leftover;
+  const code = encodeRoom(seed, players, cardsPerPlayer, counts);
+  renderHostCode(code);
+}
+
+function renderHostCode(code){
+  stage.innerHTML = `
+    <h1>房間代碼</h1>
+    <p class="sub">把這組代碼傳給所有玩家，並告訴每個人自己是幾號玩家（1 ~ ${players}）。每個人用自己的手機打開同一個連結，貼上代碼並選自己的號碼即可。</p>
+    <div class="room-code" id="roomCode">${code}</div>
+    <button type="button" class="choice-btn" id="copyBtn">複製代碼</button>
+    <button type="button" class="ghost" id="judgeBtn2">查看所有人的身分（法官）</button>
+    <button type="button" class="ghost" id="regenBtn">重新產生（重新洗牌）</button>
+    <button type="button" class="ghost" id="backBtn2">‹ 返回設定</button>
+  `;
+  document.getElementById('copyBtn').addEventListener('click', ()=>{
+    const btn = document.getElementById('copyBtn');
+    const done = ()=>{ btn.textContent='已複製！'; setTimeout(()=>btn.textContent='複製代碼',1500); };
+    if(navigator.clipboard?.writeText){
+      navigator.clipboard.writeText(code).then(done).catch(()=>fallbackCopy(code, done));
+    } else fallbackCopy(code, done);
+  });
+  document.getElementById('judgeBtn2').addEventListener('click', ()=>{
+    showConfirm('這會顯示所有玩家的身分，確定目前沒有玩家在看畫面嗎？', ()=>{
+      judgeReturnFn = ()=>renderHostCode(code);
+      renderJudgeView();
+    });
+  });
+  document.getElementById('regenBtn').addEventListener('click', generateRoomCode);
+  document.getElementById('backBtn2').addEventListener('click', renderSetup);
+}
+
+function fallbackCopy(text, done){
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    ta.remove(); done();
+  }catch(e){}
+}
+
+function renderPlayerJoin(){
+  let num = 1;
+  stage.innerHTML = `
+    <h1>輸入房間代碼</h1>
+    <p class="sub">貼上主持人給你的房間代碼，並選擇你是第幾號玩家。</p>
+    <div class="field">
+      <label>房間代碼</label>
+      <textarea id="codeInput" rows="3"></textarea>
+    </div>
+    <div class="field">
+      <label>我是第幾號玩家</label>
+      <div class="stepper wide">
+        <button type="button" id="numMinus">−</button>
+        <span id="numVal">1</span>
+        <button type="button" id="numPlus">+</button>
+      </div>
+    </div>
+    <p class="hint2" id="joinError" style="color:var(--wolf);"></p>
+    <button type="button" class="primary" id="viewBtn">查看我的身分</button>
+    <button type="button" class="ghost" id="backBtn3">‹ 返回</button>
+  `;
+  document.getElementById('numMinus').addEventListener('click', ()=>{ num=Math.max(1,num-1); document.getElementById('numVal').textContent=num; });
+  document.getElementById('numPlus').addEventListener('click', ()=>{ num=num+1; document.getElementById('numVal').textContent=num; });
+  document.getElementById('backBtn3').addEventListener('click', renderOnlineChoice);
+  document.getElementById('viewBtn').addEventListener('click', ()=>{
+    const raw = document.getElementById('codeInput').value;
+    let payload;
+    try{ payload = decodeRoom(raw); }
+    catch(e){ document.getElementById('joinError').textContent = '代碼看起來不正確，請確認有完整複製貼上。'; return; }
+    if(num < 1 || num > payload.p){
+      document.getElementById('joinError').textContent = `這個房間有 ${payload.p} 位玩家，請確認你的號碼。`;
+      return;
+    }
+    const result = computeGroups(payload.s, payload.p, payload.c, payload.n);
+    renderPlayerReveal(result.groups[num-1], num, payload.p);
+  });
+}
+
+function renderPlayerReveal(handIn, num, totalPlayers){
+  let hand = handIn.slice();
+  if(hand.length===0){
+    stage.innerHTML = `
+      <div class="turn-badge">你是第</div>
+      <div class="turn-num">${num} <span style="font-size:1.4rem;color:var(--ink-dim);">/ ${totalPlayers} 號</span></div>
+      <p class="sub" style="text-align:center;">身分卡不夠分配，你沒有拿到身分卡。</p>
+      <button type="button" class="ghost" id="backBtn4">‹ 返回</button>
+    `;
+    document.getElementById('backBtn4').addEventListener('click', renderPlayerJoin);
+    return;
+  }
+  const blocksHtml = arr => arr.map(role => `
+    <div class="role-block side-${role.side}">
+      <div class="role-icon">${role.icon}</div>
+      <div class="role-title">${role.name}</div>
+      <div class="role-desc">${role.desc}</div>
+    </div>`).join('');
+
+  stage.innerHTML = `
+    <div class="turn-badge">你是第</div>
+    <div class="turn-num">${num} <span style="font-size:1.4rem;color:var(--ink-dim);">/ ${totalPlayers} 號</span></div>
+    <div class="card" id="card">
+      <div class="card-inner">
+        <div class="card-face card-back">
+          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#e3a857" stroke-width="1.4"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+          <div class="hint">輕觸卡片查看身分${hand.length>1 ? '（共 '+hand.length+' 張）' : ''}</div>
+        </div>
+        <div class="card-face card-front">
+          ${hand.length>1 ? '<button type="button" id="swapBtn" class="swap-btn" title="交換顯示順序">⇅ 交換順序</button>' : ''}
+          <div id="cardFrontInner">${blocksHtml(hand)}</div>
+        </div>
+      </div>
+    </div>
+    <button type="button" class="ghost" id="backBtn4">看完了，返回</button>
+  `;
+  const card = document.getElementById('card');
+  card.addEventListener('click', ()=>{
+    if(card.classList.contains('flipped')) return;
+    card.classList.add('flipped');
+  });
+  document.getElementById('backBtn4').addEventListener('click', renderPlayerJoin);
+  if(hand.length>1){
+    document.getElementById('swapBtn').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      hand.reverse();
+      document.getElementById('cardFrontInner').innerHTML = blocksHtml(hand);
+    });
+  }
+}
+
+function renderJudgeView(){
+  const rows = groups.map((hand,i)=>{
+    const tags = hand.length
+      ? hand.map((r,idx)=>`<span class="tag side-${r.side}">${hand.length>1 ? (idx===0?'上：':'下：') : ''}${r.icon} ${r.name}</span>`).join('')
+      : '<span class="tag">（沒有身分卡）</span>';
+    return `<div class="judge-row"><span class="judge-num">${i+1}</span><div class="judge-roles">${tags}</div></div>`;
+  }).join('');
+  const leftoverHtml = leftover.length
+    ? `<p class="sub">未發出的身分卡：${leftover.map(r=>r.icon+' '+r.name).join('、')}</p>`
+    : '';
+  stage.innerHTML = `
+    <h1>法官檢視</h1>
+    <p class="sub">以下是所有玩家目前的身分，僅供法官核對，請勿讓其他玩家看到這個畫面。</p>
+    <div class="judge-list">${rows}</div>
+    ${leftoverHtml}
+    <button class="primary" id="backBtn">返回</button>
+  `;
+  document.getElementById('backBtn').addEventListener('click', ()=>{
+    if(judgeReturnFn){ const fn = judgeReturnFn; judgeReturnFn = null; fn(); }
+    else if(turn >= groups.length) renderDone(); else renderReveal();
+  });
+}
+
+renderModeSelect();
+</script>
+</body>
+</html>
